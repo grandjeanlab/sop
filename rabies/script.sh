@@ -21,10 +21,11 @@ rabies="/opt/rabies/0.5.1/rabies.sif"
 #arguments for RABIES preprocessing, confound regression, analysis. see https://rabies.readthedocs.io/ for more info
 prep_arg='--commonspace_reg masking=false,brain_extraction=false,template_registration=SyN,fast_commonspace=true --TR 1' 
 conf_arg='--highpass 0.01 --smoothing_filter 0.3 --lowpass 0.1 --conf_list mot_6 WM_signal CSF_signal vascular_signal --frame_censoring FD_censoring=true,FD_threshold=0.05,DVARS_censoring=true,minimum_timepoint=120 --read_datasink'
-analysis_arg='--data_diagnosis --group_ica apply=false,dim=10,random_seed=1 --seed_list /project/4180000.41/novo/seed/seed_S1-right_mouse.nii.gz'
+analysis_arg='--data_diagnosis --group_ica apply=true,dim=10,random_seed=1 --seed_list /project/4180000.41/novo/seed/seed_S1-right_mouse.nii.gz'
 
 #make the script directory. this is where your runnable rabies script per func scan will be run. 
 mkdir -p $script_dir
+mkdir -p $output_dir
 cd $script_dir
 
 #this is the main loop. by default, it will loop over every func scan that you have in your bids directory and make a separate script for it. 
@@ -61,7 +62,7 @@ echo "mkdir -p $""preprocess" >> $script_file
 echo "mkdir -p $""confound" >> $script_file
 echo "mkdir -p $""analysis" >> $script_file 
 
-echo "mkdir -p $""root_dir/output" >> $script_file 
+
 
 #run the preprocessing step of rabies
 echo "apptainer run -B "${bids}":/bids:ro -B $""{preprocess}:/preprocess -B $""{confound}:/confound -B $""{analysis}:/analysis "${rabies}" --inclusion_ids "${func_file}" -p MultiProc preprocess /bids /preprocess "${prep_arg} >> $script_file 
@@ -76,8 +77,10 @@ echo "apptainer run -B "${bids}":/bids:ro -B $""{preprocess}:/preprocess -B $""{
 echo "apptainer run -B "${bids}":/bids:ro -B $""{preprocess}:/preprocess -B $""{confound}:/confound -B $""{analysis}:/analysis "${rabies}" --inclusion_ids "${func_file}" -p MultiProc analysis /confound /analysis "${analysis_arg} >> $script_file 
 
 #copy the analysis outputs and the data diagnosis to the output directory
+echo "mv $""analysis/data_diagnosis_datasink/group_melodic.ica $""analysis/data_diagnosis_datasink/ICA_"$func_noext >> $script_file 
 echo "cp -r $""analysis/analysis_datasink "$output_dir >> $script_file 
 echo "cp -r $""analysis/data_diagnosis_datasink "$output_dir >> $script_file 
+
 
 #clean up scratch
 echo "rm -rf $""preprocess" >> $script_file 
@@ -86,7 +89,7 @@ echo "rm -rf $""analysis" >> $script_file
 
 #uncomment one of the following if you want to run the scripts automatically (do so if you are confident it will work)
 ##this is if you are using the new slurm system
-#sbatch $script_file
+sbatch $script_file
 
 ##this is if you are using the old pbs system
 #qsub -l 'nodes=1,mem=16mb,walltime=12:00:00' $script_file 
